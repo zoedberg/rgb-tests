@@ -538,6 +538,7 @@ dependencies = [
  "bp-invoice",
  "descriptors 0.11.0-beta.6",
  "psbt 0.11.0-beta.6",
+ "secp256k1 0.29.0",
  "serde",
 ]
 
@@ -555,6 +556,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "sha2",
  "strict_encoding 2.7.0-beta.4",
  "toml",
 ]
