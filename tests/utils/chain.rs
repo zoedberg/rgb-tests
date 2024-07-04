@@ -211,7 +211,7 @@ fn _wait_indexer_sync() {
                 }
             }
         }
-        if (OffsetDateTime::now_utc() - t_0).as_seconds_f32() > 15.0 {
+        if (OffsetDateTime::now_utc() - t_0).as_seconds_f32() > 25.0 {
             panic!("indexer not syncing with bitcoind");
         }
     }

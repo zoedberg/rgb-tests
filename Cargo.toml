@@ -39,6 +39,7 @@ bp-invoice = { path = "./bp-std/invoice" }
 psbt = { path = "./bp-std/psbt" }
 ## bp-wallet
 bp-wallet = { path = "./bp-wallet", features = [
+    "cli", # tmp
     "electrum",
     "esplora",
     "fs",

@@ -1,7 +1,7 @@
 use super::*;
 
-pub struct Wallet {
-    stored_wallet: StoredWallet<BpWallet<XpubDerivable, RgbDescr>>,
+pub struct TestWallet {
+    wallet: RgbWallet<Wallet<XpubDerivable, RgbDescr>>,
     account: MemorySigningAccount,
 }
 
@@ -305,7 +305,7 @@ impl AssetInfo {
     }
 }
 
-pub fn get_wallet(descriptor_type: &DescriptorType) -> Wallet {
+pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
     let mut seed = vec![0u8; 128];
     rand::thread_rng().fill_bytes(&mut seed);
 
@@ -344,40 +344,28 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> Wallet {
     std::fs::create_dir_all(&rgb_dir).unwrap();
     println!("wallet dir: {rgb_dir:?}");
 
-    let mut bp_runtime: BpRuntime<RgbDescr> = BpRuntime::new_standard(descriptor, Network::Regtest);
-
-    if bp_runtime.warnings().is_empty() {
-        eprintln!("success");
-    } else {
-        eprintln!("complete with warnings:");
-        for warning in bp_runtime.warnings() {
-            eprintln!("- {warning}");
-        }
-        bp_runtime.reset_warnings();
-    }
-
+    let mut bp_wallet: Wallet<XpubDerivable, RgbDescr> =
+        Wallet::new_layer1(descriptor, Network::Regtest);
     let name = s!("wallet_name");
     let dir = rgb_dir.join(&name);
-    bp_runtime.set_name(name);
-    bp_runtime.store(&dir).unwrap();
+    bp_wallet.set_name(name);
+    bp_wallet
+        .set_fs_config(FsConfig {
+            path: dir,
+            autosave: true,
+        })
+        .unwrap();
 
-    let stock = Stock::default();
-    stock.store(&rgb_dir).unwrap();
-    let mut stored_stock = StoredStock::attach(rgb_dir.clone(), stock.clone());
+    let stock = Stock::new(rgb_dir.to_owned());
 
-    let wallet_path = bp_runtime.path().clone();
-    let stored_wallet =
-        StoredWallet::attach(rgb_dir.clone(), wallet_path, stock, bp_runtime.detach());
+    let mut wallet = RgbWallet::new(stock, bp_wallet);
 
     for asset_schema in AssetSchema::iter() {
         let valid_kit = asset_schema.get_valid_kit();
-        stored_stock.import_kit(valid_kit).unwrap();
+        wallet.stock_mut().import_kit(valid_kit).unwrap();
     }
 
-    let mut wallet = Wallet {
-        stored_wallet,
-        account,
-    };
+    let mut wallet = TestWallet { wallet, account };
 
     wallet.sync();
 
@@ -456,10 +444,10 @@ pub fn uda_token_data(
     token_data
 }
 
-impl Wallet {
+impl TestWallet {
     pub fn get_utxo(&mut self) -> Outpoint {
         let address = self
-            .stored_wallet
+            .wallet
             .wallet()
             .addresses(RgbKeychain::for_method(self.close_method()))
             .next()
@@ -469,7 +457,7 @@ impl Wallet {
         let txid = fund_wallet(address);
         self.sync();
         let mut vout = None;
-        let bp_runtime = self.stored_wallet.wallet();
+        let bp_runtime = self.wallet.wallet();
         for (_derived_addr, utxos) in bp_runtime.address_coins() {
             for utxo in utxos {
                 if utxo.outpoint.txid.to_string() == txid {
@@ -485,16 +473,15 @@ impl Wallet {
 
     pub fn sync(&mut self) {
         let indexer = get_indexer();
-        self.stored_wallet
+        self.wallet
             .wallet_mut()
             .update(&indexer)
             .into_result()
             .unwrap();
-        self.stored_wallet.store();
     }
 
     pub fn close_method(&self) -> CloseMethod {
-        self.stored_wallet.wallet().seal_close_method()
+        self.wallet.wallet().seal_close_method()
     }
 
     pub fn issue_with_info(
@@ -532,7 +519,7 @@ impl Wallet {
 
         let contract = builder.issue_contract().expect("failure issuing contract");
         let mut resolver = get_resolver();
-        self.stored_wallet
+        self.wallet
             .stock_mut()
             .import_contract(contract.clone(), &mut resolver)
             .unwrap();
@@ -594,7 +581,7 @@ impl Wallet {
         close_method: CloseMethod,
         invoice_type: InvoiceType,
     ) -> RgbInvoice {
-        let network = self.stored_wallet.wallet().network();
+        let network = self.wallet.wallet().network();
         let beneficiary = match invoice_type {
             InvoiceType::Blinded(outpoint) => {
                 let outpoint = if let Some(outpoint) = outpoint {
@@ -607,15 +594,12 @@ impl Wallet {
                     outpoint.txid,
                     outpoint.vout,
                 ));
-                self.stored_wallet
-                    .stock_mut()
-                    .store_secret_seal(seal)
-                    .unwrap();
+                self.wallet.stock_mut().store_secret_seal(seal).unwrap();
                 Beneficiary::BlindedSeal(*seal.to_secret_seal().as_reduced_unsafe())
             }
             InvoiceType::Witness => {
                 let address = self
-                    .stored_wallet
+                    .wallet
                     .wallet()
                     .addresses(RgbKeychain::Rgb)
                     .next()
@@ -656,7 +640,7 @@ impl Wallet {
         let fee = Sats::from_sats(fee.unwrap_or(400));
         let sats = Sats::from_sats(sats.unwrap_or(2000));
         let params = TransferParams::with(fee, sats);
-        let (psbt, _psbt_meta, consignment) = self.stored_wallet.pay(&invoice, params).unwrap();
+        let (psbt, _psbt_meta, consignment) = self.wallet.pay(&invoice, params).unwrap();
 
         let secp = Secp256k1::new();
         let mut key_provider = MemoryKeyProvider::with(&secp, true);
@@ -679,13 +663,13 @@ impl Wallet {
     pub fn accept_transfer(&mut self, consignment: Transfer) {
         self.sync();
         let mut resolver = get_resolver();
-        let validated_consignment = consignment.validate(&mut resolver, true).unwrap();
+        let validated_consignment = consignment.validate(&resolver, true).unwrap();
         let validation_status = validated_consignment.clone().into_validation_status();
         let validity = validation_status.validity();
         assert_eq!(validity, Validity::Valid);
         let mut attempts = 0;
         while let Err(e) = self
-            .stored_wallet
+            .wallet
             .stock_mut()
             .accept_transfer(validated_consignment.clone(), &mut resolver)
         {
@@ -702,7 +686,7 @@ impl Wallet {
         contract_id: ContractId,
         iface_type_name: &TypeName,
     ) -> ContractIface {
-        self.stored_wallet
+        self.wallet
             .stock()
             .contract_iface(contract_id, iface_type_name.clone())
             .unwrap()
@@ -713,14 +697,14 @@ impl Wallet {
         contract_iface: &ContractIface,
     ) -> Vec<FungibleAllocation> {
         contract_iface
-            .fungible(fname!("assetOwner"), &self.stored_wallet.wallet().filter())
+            .fungible(fname!("assetOwner"), &self.wallet.wallet().filter())
             .unwrap()
             .collect()
     }
 
     pub fn contract_data_allocations(&self, contract_iface: &ContractIface) -> Vec<DataAllocation> {
         contract_iface
-            .data(fname!("assetOwner"), &self.stored_wallet.wallet().filter())
+            .data(fname!("assetOwner"), &self.wallet.wallet().filter())
             .unwrap()
             .collect()
     }
@@ -741,7 +725,7 @@ impl Wallet {
         for owned in &contract.iface.assignments {
             println!("  {}:", owned.name);
             if let Ok(allocations) =
-                contract.fungible(owned.name.clone(), &self.stored_wallet.wallet().filter())
+                contract.fungible(owned.name.clone(), &self.wallet.wallet().filter())
             {
                 for allocation in allocations {
                     println!(
@@ -752,7 +736,7 @@ impl Wallet {
             }
             if let Ok(allocations) = contract.fungible(
                 owned.name.clone(),
-                &FilterExclude(&self.stored_wallet.wallet().filter()),
+                &FilterExclude(&self.wallet.wallet().filter()),
             ) {
                 for allocation in allocations {
                     println!(
@@ -763,7 +747,7 @@ impl Wallet {
             }
         }
 
-        let bp_runtime = self.stored_wallet.wallet();
+        let bp_runtime = self.wallet.wallet();
         println!("\nHeight\t{:>12}\t{:68}", "Amount, ṩ", "Outpoint");
         for (derived_addr, utxos) in bp_runtime.address_coins() {
             println!("{}\t{}", derived_addr.addr, derived_addr.terminal);
@@ -778,7 +762,7 @@ impl Wallet {
 
     pub fn send(
         &mut self,
-        recv_wlt: &mut Wallet,
+        recv_wlt: &mut TestWallet,
         transfer_type: TransferType,
         contract_id: ContractId,
         iface_type_name: &TypeName,
