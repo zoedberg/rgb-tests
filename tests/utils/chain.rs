@@ -205,7 +205,7 @@ fn _wait_indexer_sync() {
                 }
             }
             Indexer::Esplora => {
-                let esplora_client = EsploraClient::new(ESPLORA_URL).build_blocking().unwrap();
+                let esplora_client = EsploraClient::new_esplora(ESPLORA_URL).unwrap();
                 if esplora_client.block_hash(blockcount).is_ok() {
                     break;
                 }

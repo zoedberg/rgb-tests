@@ -36,10 +36,12 @@ pub use bp::{
     ConsensusDecode, Outpoint, Sats, Tx, Txid, Vout,
 };
 pub use bpstd::{
-    DerivationPath as BpDerivationPath, DerivationSeg, HardenedIndex, Keychain, Network, Xpub,
-    XpubDerivable, XpubFp, XpubOrigin,
+    signers::TestnetSigner, DerivationPath as BpDerivationPath, DerivationSeg, HardenedIndex,
+    Keychain, Network, XkeyOrigin, Xpriv, XprivAccount, Xpub, XpubDerivable, XpubFp,
 };
-pub use bpwallet::{AnyIndexer, FsConfig, Wallet};
+pub use bpwallet::{
+    indexers::esplora::Client as EsploraClient, AnyIndexer, FsConfig, Indexer as BpIndexer, Wallet,
+};
 pub use descriptors::Wpkh;
 pub use dw_psbt::{
     serialize::Deserialize,
@@ -47,7 +49,6 @@ pub use dw_psbt::{
     Psbt as DwPsbt,
 };
 pub use electrum::{Client as ElectrumClient, ElectrumApi};
-pub use esplora::Builder as EsploraClient;
 pub use ifaces::{
     rgb20, rgb21,
     rgb21::{EmbeddedMedia, TokenData},

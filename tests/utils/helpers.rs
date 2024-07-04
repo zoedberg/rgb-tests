@@ -2,7 +2,8 @@ use super::*;
 
 pub struct TestWallet {
     wallet: RgbWallet<Wallet<XpubDerivable, RgbDescr>>,
-    account: MemorySigningAccount,
+    descriptor: RgbDescr,
+    signer: TestnetSigner,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -338,6 +339,19 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
         DescriptorType::Tr => RgbDescr::TapretKey(TapretKey::from(xpub_derivable)),
     };
 
+    let master_fp =
+        XpubFp::from_str(&derivation_account.master.fingerprint().unwrap().to_string()).unwrap();
+    let mut derivation = BpDerivationPath::<HardenedIndex>::new();
+    derivation.extend_from_slice(&[
+        HardenedIndex::from(86u8),
+        HardenedIndex::from(1u8),
+        HardenedIndex::from(0u8),
+    ]);
+    let origin = XkeyOrigin::new(master_fp, derivation);
+    let xpriv = Xpriv::from_str(&account_xpriv.to_string()).unwrap();
+    let signer_account = XprivAccount::new(xpriv, origin);
+    let signer = TestnetSigner::new(signer_account);
+
     let rgb_dir = PathBuf::from("tests")
         .join("tmp")
         .join(account.account_fingerprint().to_string());
@@ -345,7 +359,7 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
     println!("wallet dir: {rgb_dir:?}");
 
     let mut bp_wallet: Wallet<XpubDerivable, RgbDescr> =
-        Wallet::new_layer1(descriptor, Network::Regtest);
+        Wallet::new_layer1(descriptor.clone(), Network::Regtest);
     let name = s!("wallet_name");
     let dir = rgb_dir.join(&name);
     bp_wallet.set_name(name);
@@ -365,7 +379,11 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
         wallet.stock_mut().import_kit(valid_kit).unwrap();
     }
 
-    let mut wallet = TestWallet { wallet, account };
+    let mut wallet = TestWallet {
+        wallet,
+        descriptor,
+        signer,
+    };
 
     wallet.sync();
 
@@ -377,9 +395,9 @@ fn get_indexer() -> AnyIndexer {
         Indexer::Electrum => {
             AnyIndexer::Electrum(Box::new(ElectrumClient::new(ELECTRUM_URL).unwrap()))
         }
-        Indexer::Esplora => AnyIndexer::Esplora(Box::new(
-            EsploraClient::new(ESPLORA_URL).build_blocking().unwrap(),
-        )),
+        Indexer::Esplora => {
+            AnyIndexer::Esplora(Box::new(EsploraClient::new_esplora(ESPLORA_URL).unwrap()))
+        }
     }
 }
 
@@ -396,7 +414,7 @@ fn broadcast_tx(indexer: &AnyIndexer, tx: &Tx) {
             inner.transaction_broadcast(tx).unwrap();
         }
         AnyIndexer::Esplora(inner) => {
-            inner.broadcast(tx).unwrap();
+            inner.publish(tx).unwrap();
         }
         _ => unreachable!("unsupported indexer"),
     }
@@ -640,17 +658,12 @@ impl TestWallet {
         let fee = Sats::from_sats(fee.unwrap_or(400));
         let sats = Sats::from_sats(sats.unwrap_or(2000));
         let params = TransferParams::with(fee, sats);
-        let (psbt, _psbt_meta, consignment) = self.wallet.pay(&invoice, params).unwrap();
+        let (mut psbt, _psbt_meta, consignment) = self.wallet.pay(&invoice, params).unwrap();
 
-        let secp = Secp256k1::new();
-        let mut key_provider = MemoryKeyProvider::with(&secp, true);
-        key_provider.add_account(self.account.clone());
-        let mut psbt = DwPsbt::deserialize(&psbt.serialize(PsbtVer::V0)).unwrap();
-        let _sig_count = psbt.sign_all(&key_provider).unwrap();
-        let mut psbt = consensus::encode::deserialize::<BitcoinPsbt>(&psbt.serialize()).unwrap();
-        psbt.finalize_mut(&secp).unwrap();
+        let _sig_count = psbt.sign(&self.signer).unwrap();
+        psbt.finalize(&self.descriptor);
+        let tx = psbt.extract().unwrap();
 
-        let tx = Tx::consensus_deserialize(psbt.extract_tx().serialize()).unwrap();
         let indexer = get_indexer();
         broadcast_tx(&indexer, &tx);
 

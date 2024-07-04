@@ -33,13 +33,12 @@ bp-electrum = { path = "./bp-electrum-client" }
 ## bp-esplora
 bp-esplora = { path = "./bp-esplora-client" }
 ## bp-std
-bp-std = { path = "./bp-std" }
+bp-std = { path = "./bp-std", features = ["signers"] }
 descriptors = { path = "./bp-std/descriptors" }
 bp-invoice = { path = "./bp-std/invoice" }
 psbt = { path = "./bp-std/psbt" }
 ## bp-wallet
 bp-wallet = { path = "./bp-wallet", features = [
-    "cli", # tmp
     "electrum",
     "esplora",
     "fs",
