@@ -36,10 +36,12 @@ pub use bp::{
     ConsensusDecode, Outpoint, Sats, Tx, Txid, Vout,
 };
 pub use bpstd::{
-    DerivationPath as BpDerivationPath, DerivationSeg, HardenedIndex, Keychain, Network, Xpub,
-    XpubDerivable, XpubFp, XpubOrigin,
+    signers::TestnetSigner, DerivationPath as BpDerivationPath, DerivationSeg, HardenedIndex,
+    Keychain, Network, XkeyOrigin, Xpriv, XprivAccount, Xpub, XpubDerivable, XpubFp,
 };
-pub use bpwallet::{AnyIndexer, Runtime as BpRuntime, Wallet as BpWallet};
+pub use bpwallet::{
+    indexers::esplora::Client as EsploraClient, AnyIndexer, FsConfig, Indexer as BpIndexer, Wallet,
+};
 pub use descriptors::Wpkh;
 pub use dw_psbt::{
     serialize::Deserialize,
@@ -47,7 +49,6 @@ pub use dw_psbt::{
     Psbt as DwPsbt,
 };
 pub use electrum::{Client as ElectrumClient, ElectrumApi};
-pub use esplora::Builder as EsploraClient;
 pub use ifaces::{
     rgb20, rgb21,
     rgb21::{EmbeddedMedia, TokenData},
@@ -58,9 +59,9 @@ pub use once_cell::sync::Lazy;
 pub use psbt::PsbtVer;
 pub use rand::RngCore;
 pub use rgb::{
-    invoice::Pay2Vout, stl::ContractTerms, AnyResolver, DescriptorRgb, GenesisSeal, GraphSeal,
-    Identity, RgbDescr, RgbKeychain, StoredStock, StoredWallet, TapretKey, TransferParams,
-    WalletProvider,
+    invoice::Pay2Vout, persistence::Stock, resolvers::AnyResolver, stl::ContractTerms,
+    DescriptorRgb, GenesisSeal, GraphSeal, Identity, RgbDescr, RgbKeychain, RgbWallet, TapretKey,
+    TransferParams, WalletProvider,
 };
 pub use rgbstd::{
     containers::{BuilderSeal, FileContent, Kit, Transfer, ValidKit},
@@ -69,10 +70,7 @@ pub use rgbstd::{
         IfaceClass, IfaceId, IfaceImpl, NamedField,
     },
     invoice::{Beneficiary, RgbInvoice, RgbInvoiceBuilder, XChainNet},
-    persistence::{
-        fs::{LoadFs, StoreFs},
-        PersistedState, SchemaIfaces, StashReadProvider, Stock,
-    },
+    persistence::{PersistedState, SchemaIfaces, StashReadProvider},
     schema::SchemaId,
     stl::{
         AssetSpec, Attachment, Details, MediaType, Name, ProofOfReserves, RicardianContract, Ticker,
