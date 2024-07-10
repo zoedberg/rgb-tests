@@ -195,7 +195,7 @@ fn _wait_indexer_sync() {
     let t_0 = OffsetDateTime::now_utc();
     let blockcount = get_height();
     loop {
-        std::thread::sleep(std::time::Duration::from_millis(100));
+        std::thread::sleep(std::time::Duration::from_millis(500));
         match INDEXER.get().unwrap() {
             Indexer::Electrum => {
                 let electrum_client =
@@ -211,7 +211,7 @@ fn _wait_indexer_sync() {
                 }
             }
         }
-        if (OffsetDateTime::now_utc() - t_0).as_seconds_f32() > 15.0 {
+        if (OffsetDateTime::now_utc() - t_0).as_seconds_f32() > 25.0 {
             panic!("indexer not syncing with bitcoind");
         }
     }

@@ -1,7 +1,9 @@
+use bpwallet::FsConfig;
+use rgb::RgbWallet;
 use super::*;
 
 pub struct Wallet {
-    stored_wallet: StoredWallet<BpWallet<XpubDerivable, RgbDescr>>,
+    stored_wallet: RgbWallet<BpWallet<XpubDerivable, RgbDescr>>,
     account: MemorySigningAccount,
 }
 
@@ -344,34 +346,20 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> Wallet {
     std::fs::create_dir_all(&rgb_dir).unwrap();
     println!("wallet dir: {rgb_dir:?}");
 
-    let mut bp_runtime: BpRuntime<RgbDescr> = BpRuntime::new_standard(descriptor, Network::Regtest);
-
-    if bp_runtime.warnings().is_empty() {
-        eprintln!("success");
-    } else {
-        eprintln!("complete with warnings:");
-        for warning in bp_runtime.warnings() {
-            eprintln!("- {warning}");
-        }
-        bp_runtime.reset_warnings();
-    }
+    let mut bp_wallet = BpWallet::new_layer1(descriptor, Network::Regtest);
+    eprintln!("success");
 
     let name = s!("wallet_name");
     let dir = rgb_dir.join(&name);
-    bp_runtime.set_name(name);
-    bp_runtime.store(&dir).unwrap();
+    bp_wallet.set_name(name);
+    bp_wallet.set_fs_config(FsConfig { path: dir, autosave: true }).unwrap();
 
-    let stock = Stock::default();
-    stock.store(&rgb_dir).unwrap();
-    let mut stored_stock = StoredStock::attach(rgb_dir.clone(), stock.clone());
-
-    let wallet_path = bp_runtime.path().clone();
-    let stored_wallet =
-        StoredWallet::attach(rgb_dir.clone(), wallet_path, stock, bp_runtime.detach());
+    let stock = Stock::new(rgb_dir);
+    let mut stored_wallet = RgbWallet::new(stock, bp_wallet);
 
     for asset_schema in AssetSchema::iter() {
         let valid_kit = asset_schema.get_valid_kit();
-        stored_stock.import_kit(valid_kit).unwrap();
+        stored_wallet.stock_mut().import_kit(valid_kit).unwrap();
     }
 
     let mut wallet = Wallet {
@@ -490,7 +478,6 @@ impl Wallet {
             .update(&indexer)
             .into_result()
             .unwrap();
-        self.stored_wallet.store();
     }
 
     pub fn close_method(&self) -> CloseMethod {
@@ -693,7 +680,7 @@ impl Wallet {
             if attempts > 3 {
                 panic!("error accepting transfer: {e}");
             }
-            std::thread::sleep(std::time::Duration::from_millis(100));
+            std::thread::sleep(std::time::Duration::from_millis(500));
         }
     }
 
