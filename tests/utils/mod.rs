@@ -39,7 +39,7 @@ pub use bpstd::{
     DerivationPath as BpDerivationPath, DerivationSeg, HardenedIndex, Keychain, Network, Xpub,
     XpubDerivable, XpubFp, XpubOrigin,
 };
-pub use bpwallet::{AnyIndexer, Runtime as BpRuntime, Wallet as BpWallet};
+pub use bpwallet::{AnyIndexer, Wallet as BpWallet};
 pub use descriptors::Wpkh;
 pub use dw_psbt::{
     serialize::Deserialize,
@@ -58,11 +58,10 @@ pub use once_cell::sync::Lazy;
 pub use psbt::PsbtVer;
 pub use rand::RngCore;
 pub use rgb::{
-    invoice::Pay2Vout, stl::ContractTerms, AnyResolver, DescriptorRgb, GenesisSeal, GraphSeal,
-    Identity, RgbDescr, RgbKeychain, StoredStock, StoredWallet, TapretKey, TransferParams,
+    invoice::Pay2Vout, stl::ContractTerms, DescriptorRgb, GenesisSeal, GraphSeal,
+    Identity, RgbDescr, RgbKeychain,  TapretKey, TransferParams,
     WalletProvider,
-};
-pub use rgbstd::{
+    resolvers::AnyResolver,
     containers::{BuilderSeal, FileContent, Kit, Transfer, ValidKit},
     interface::{
         ContractBuilder, ContractIface, DataAllocation, FilterExclude, FungibleAllocation, Iface,
@@ -70,7 +69,6 @@ pub use rgbstd::{
     },
     invoice::{Beneficiary, RgbInvoice, RgbInvoiceBuilder, XChainNet},
     persistence::{
-        fs::{LoadFs, StoreFs},
         PersistedState, SchemaIfaces, StashReadProvider, Stock,
     },
     schema::SchemaId,
