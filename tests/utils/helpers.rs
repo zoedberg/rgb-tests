@@ -634,6 +634,7 @@ impl TestWallet {
         invoice: RgbInvoice,
         sats: Option<u64>,
         fee: Option<u64>,
+        broadcast: bool,
     ) -> (Transfer, Tx) {
         self.sync();
 
@@ -651,8 +652,11 @@ impl TestWallet {
         psbt.finalize_mut(&secp).unwrap();
 
         let tx = Tx::consensus_deserialize(psbt.extract_tx().serialize()).unwrap();
-        let indexer = get_indexer();
-        broadcast_tx(&indexer, &tx);
+
+        if broadcast {
+            let indexer = get_indexer();
+            broadcast_tx(&indexer, &tx);
+        }
 
         let txid = tx.txid().to_string();
         println!("transfer txid: {txid:?}");
@@ -785,7 +789,7 @@ impl TestWallet {
                 InvoiceType::Witness,
             ),
         };
-        let (consignment, tx) = self.transfer(invoice, Some(sats), None);
+        let (consignment, tx) = self.transfer(invoice, Some(sats), None, true);
         mine(false);
         recv_wlt.accept_transfer(consignment.clone());
         self.sync();

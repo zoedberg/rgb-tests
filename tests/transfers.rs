@@ -457,15 +457,50 @@ fn same_transfer_twice() {
         wlt_2.close_method(),
         InvoiceType::Witness,
     );
-    let _ = wlt_1.transfer(invoice.clone(), None, Some(500));
+    let _ = wlt_1.transfer(invoice.clone(), None, Some(500), true);
 
     // retry with higher fees, TX hasn't been mined
     let mid_height = get_height();
     assert_eq!(initial_height, mid_height);
 
-    let _ = wlt_1.transfer(invoice, None, Some(1000));
+    let _ = wlt_1.transfer(invoice, None, Some(1000), true);
 
     let final_height = get_height();
     assert_eq!(initial_height, final_height);
     resume_mining();
+}
+
+#[test]
+fn transfer_received_offchain() {
+    initialize();
+
+    let mut wlt_1 = get_wallet(&DescriptorType::Wpkh);
+    let mut wlt_2 = get_wallet(&DescriptorType::Wpkh);
+    let mut wlt_3 = get_wallet(&DescriptorType::Wpkh);
+
+    let amount = 600;
+
+    let (contract_id, iface_type_name) = wlt_1.issue_nia(amount, wlt_1.close_method(), None);
+
+    println!("transfer n.1");
+    let invoice = wlt_2.invoice(
+        contract_id,
+        &iface_type_name,
+        amount,
+        wlt_2.close_method(),
+        InvoiceType::Witness,
+    );
+    let (consignment, _) = wlt_1.transfer(invoice.clone(), Some(3000), Some(500), false);
+    wlt_2.accept_transfer(consignment);
+
+    println!("transfer n.2");
+    let invoice = wlt_3.invoice(
+        contract_id,
+        &iface_type_name,
+        amount,
+        wlt_3.close_method(),
+        InvoiceType::Witness,
+    );
+    let (consignment, _) = wlt_2.transfer(invoice.clone(), Some(2000), None, false); // this fails
+    wlt_3.accept_transfer(consignment);
 }
