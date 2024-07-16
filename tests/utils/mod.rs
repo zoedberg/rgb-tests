@@ -8,7 +8,7 @@ pub const UDA_FIXED_INDEX: u32 = 0;
 
 pub use std::{
     cell::OnceCell,
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     env::VarError,
     ffi::OsString,
     fmt::{self, Display},
@@ -19,8 +19,9 @@ pub use std::{
 };
 
 pub use amplify::{
+    bmap,
     confinement::{Confined, U16},
-    map, s, Wrapper,
+    map, s, ByteArray, Wrapper,
 };
 pub use bitcoin::{
     consensus,
@@ -32,12 +33,13 @@ pub use bitcoin::{
     },
 };
 pub use bp::{
-    seals::txout::{BlindSeal, CloseMethod},
-    ConsensusDecode, Outpoint, Sats, Tx, Txid, Vout,
+    seals::txout::{BlindSeal, CloseMethod, ExplicitSeal},
+    ConsensusDecode, Outpoint, Sats, ScriptPubkey, Tx, Txid, Vout,
 };
 pub use bpstd::{
-    signers::TestnetSigner, DerivationPath as BpDerivationPath, DerivationSeg, HardenedIndex,
-    Keychain, Network, XkeyOrigin, Xpriv, XprivAccount, Xpub, XpubDerivable, XpubFp,
+    signers::TestnetSigner, Address, DerivationPath as BpDerivationPath, DerivationSeg,
+    DerivedAddr, HardenedIndex, Keychain, Network, NormalIndex, Terminal, XkeyOrigin, Xpriv,
+    XprivAccount, Xpub, XpubDerivable, XpubFp,
 };
 pub use bpwallet::{
     indexers::esplora::Client as EsploraClient, AnyIndexer, FsConfig, Indexer as BpIndexer, Wallet,
@@ -56,15 +58,18 @@ pub use ifaces::{
 };
 pub use miniscript::psbt::PsbtExt;
 pub use once_cell::sync::Lazy;
-pub use psbt::PsbtVer;
+pub use psbt::{
+    Beneficiary as PsbtBeneficiary, Payment, Prevout, Psbt, PsbtConstructor, PsbtMeta, PsbtVer,
+};
+pub use psrgbt::{RgbExt, RgbInExt, RgbPsbt, TxParams};
 pub use rand::RngCore;
 pub use rgb::{
     invoice::Pay2Vout, persistence::Stock, resolvers::AnyResolver, stl::ContractTerms,
-    DescriptorRgb, GenesisSeal, GraphSeal, Identity, RgbDescr, RgbKeychain, RgbWallet, TapretKey,
-    TransferParams, WalletProvider,
+    BlindingFactor, DescriptorRgb, GenesisSeal, GraphSeal, Identity, RgbDescr, RgbKeychain,
+    RgbWallet, TapretKey, TransferParams, Transition, WalletProvider, XOutpoint, XOutputSeal,
 };
 pub use rgbstd::{
-    containers::{BuilderSeal, FileContent, Kit, Transfer, ValidKit},
+    containers::{BuilderSeal, Fascia, FileContent, Kit, Transfer, ValidKit},
     interface::{
         ContractBuilder, ContractIface, DataAllocation, FilterExclude, FungibleAllocation, Iface,
         IfaceClass, IfaceId, IfaceImpl, NamedField,
@@ -76,8 +81,8 @@ pub use rgbstd::{
         AssetSpec, Attachment, Details, MediaType, Name, ProofOfReserves, RicardianContract, Ticker,
     },
     validation::{Scripts, Validity},
-    Allocation, Amount, ContractId, GlobalStateType, Layer1, OwnedFraction, Precision, Schema,
-    TokenIndex, TxoSeal, XChain,
+    Allocation, Amount, ContractId, GlobalStateType, Layer1, Operation, OwnedFraction, Precision,
+    Schema, TokenIndex, TxoSeal, XChain,
 };
 pub use rstest::rstest;
 pub use schemata::{CollectibleFungibleAsset, NonInflatableAsset, UniqueDigitalAsset};

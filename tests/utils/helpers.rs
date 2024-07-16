@@ -35,6 +35,31 @@ pub enum InvoiceType {
     Witness,
 }
 
+/// RGB asset-specific information to color a transaction
+#[derive(Clone, Debug)]
+pub struct AssetColoringInfo {
+    /// Contract iface
+    pub iface: TypeName,
+    /// Input outpoints of the assets being spent
+    pub input_outpoints: Vec<Outpoint>,
+    /// Map of vouts and asset amounts to color the transaction outputs
+    pub output_map: HashMap<u32, u64>,
+    /// Static blinding to keep the transaction construction deterministic
+    pub static_blinding: Option<u64>,
+}
+
+/// RGB information to color a transaction
+#[derive(Clone, Debug)]
+pub struct ColoringInfo {
+    /// Asset-specific information
+    pub asset_info_map: HashMap<ContractId, AssetColoringInfo>,
+    /// Static blinding to keep the transaction construction deterministic
+    pub static_blinding: Option<u64>,
+}
+
+/// Map of contract ID and list of its beneficiaries
+pub type AssetBeneficiariesMap = BTreeMap<ContractId, Vec<BuilderSeal<GraphSeal>>>;
+
 #[derive(Debug, EnumIter, Copy, Clone, PartialEq)]
 pub enum AssetSchema {
     Nia,
@@ -463,16 +488,25 @@ pub fn uda_token_data(
 }
 
 impl TestWallet {
-    pub fn get_utxo(&mut self) -> Outpoint {
-        let address = self
-            .wallet
+    pub fn keychain(&self) -> RgbKeychain {
+        RgbKeychain::for_method(self.close_method())
+    }
+
+    pub fn get_derived_address(&mut self) -> DerivedAddr {
+        self.wallet
             .wallet()
-            .addresses(RgbKeychain::for_method(self.close_method()))
+            .addresses(self.keychain())
             .next()
             .expect("no addresses left")
-            .addr
-            .to_string();
-        let txid = fund_wallet(address);
+    }
+
+    pub fn get_address(&mut self) -> Address {
+        self.get_derived_address().addr
+    }
+
+    pub fn get_utxo(&mut self, sats: Option<u64>) -> Outpoint {
+        let address = self.get_address().to_string();
+        let txid = fund_wallet(address, sats);
         self.sync();
         let mut vout = None;
         let bp_runtime = self.wallet.wallet();
@@ -511,7 +545,7 @@ impl TestWallet {
         let outpoint = if let Some(outpoint) = outpoint {
             *outpoint
         } else {
-            self.get_utxo()
+            self.get_utxo(None)
         };
 
         let blind_seal = match close_method {
@@ -605,7 +639,7 @@ impl TestWallet {
                 let outpoint = if let Some(outpoint) = outpoint {
                     outpoint
                 } else {
-                    self.get_utxo()
+                    self.get_utxo(None)
                 };
                 let seal = XChain::Bitcoin(GraphSeal::new_random(
                     close_method,
@@ -616,13 +650,7 @@ impl TestWallet {
                 Beneficiary::BlindedSeal(*seal.to_secret_seal().as_reduced_unsafe())
             }
             InvoiceType::Witness => {
-                let address = self
-                    .wallet
-                    .wallet()
-                    .addresses(RgbKeychain::Rgb)
-                    .next()
-                    .expect("no addresses left")
-                    .addr;
+                let address = self.get_address();
                 Beneficiary::WitnessVout(Pay2Vout {
                     address: address.payload,
                     method: close_method,
@@ -848,5 +876,259 @@ impl TestWallet {
                 assert_eq!(allocations.len(), expected_allocations);
             }
         }
+    }
+
+    fn _construct_psbt_offchain(
+        &mut self,
+        input_outpoints: Vec<(Outpoint, u64, Terminal)>,
+        beneficiaries: Vec<&PsbtBeneficiary>,
+        tx_params: TxParams,
+    ) -> (Psbt, PsbtMeta) {
+        let mut psbt = Psbt::create(PsbtVer::V2);
+
+        for (outpoint, value, terminal) in input_outpoints {
+            psbt.construct_input_expect(
+                Prevout::new(outpoint, Sats::from(value)),
+                self.wallet.wallet().descriptor(),
+                terminal,
+                tx_params.seq_no,
+            );
+        }
+        if psbt.inputs().count() == 0 {
+            panic!("no inputs");
+        }
+
+        let input_value = psbt.input_sum();
+        let mut max = Vec::new();
+        let mut output_value = Sats::ZERO;
+        for beneficiary in beneficiaries {
+            let amount = beneficiary.amount.unwrap_or(Sats::ZERO);
+            output_value.checked_add_assign(amount).unwrap();
+            let out = psbt.construct_output_expect(beneficiary.script_pubkey(), amount);
+            if beneficiary.amount.is_max() {
+                max.push(out.index());
+            }
+        }
+        let mut remaining_value = input_value
+            .checked_sub(output_value)
+            .unwrap()
+            .checked_sub(tx_params.fee)
+            .unwrap();
+        if !max.is_empty() {
+            let portion = remaining_value / max.len();
+            for out in psbt.outputs_mut() {
+                if max.contains(&out.index()) {
+                    out.amount = portion;
+                }
+            }
+            remaining_value = Sats::ZERO;
+        }
+
+        let (change_vout, change_terminal) = if remaining_value > Sats::from(546u64) {
+            let change_index = self
+                .wallet
+                .wallet_mut()
+                .next_derivation_index(tx_params.change_keychain, tx_params.change_shift);
+            let change_terminal = Terminal::new(tx_params.change_keychain, change_index);
+            let change_vout = psbt
+                .construct_change_expect(
+                    self.wallet.wallet().descriptor(),
+                    change_terminal,
+                    remaining_value,
+                )
+                .index();
+            (
+                Some(Vout::from_u32(change_vout as u32)),
+                Some(change_terminal),
+            )
+        } else {
+            (None, None)
+        };
+
+        (
+            psbt,
+            PsbtMeta {
+                change_vout,
+                change_terminal,
+            },
+        )
+    }
+
+    fn _construct_beneficiaries(
+        &self,
+        beneficiaries: Vec<(Address, Option<u64>)>,
+    ) -> Vec<PsbtBeneficiary> {
+        beneficiaries
+            .into_iter()
+            .map(|(addr, amt)| {
+                let payment = if let Some(amt) = amt {
+                    Payment::Fixed(Sats::from_sats(amt))
+                } else {
+                    Payment::Max
+                };
+                PsbtBeneficiary::new(addr, payment)
+            })
+            .collect()
+    }
+
+    pub fn construct_psbt_offchain(
+        &mut self,
+        input_outpoints: Vec<(Outpoint, u64, Terminal)>,
+        beneficiaries: Vec<(Address, Option<u64>)>,
+        fee: Option<u64>,
+    ) -> (Psbt, PsbtMeta) {
+        let tx_params = TxParams::with(Sats::from_sats(fee.unwrap_or(400)));
+        let beneficiaries = self._construct_beneficiaries(beneficiaries);
+        let beneficiaries: Vec<&PsbtBeneficiary> = beneficiaries.iter().collect();
+
+        self._construct_psbt_offchain(input_outpoints, beneficiaries, tx_params)
+    }
+
+    pub fn construct_psbt(
+        &mut self,
+        input_outpoints: Vec<Outpoint>,
+        beneficiaries: Vec<(Address, Option<u64>)>,
+        fee: Option<u64>,
+    ) -> (Psbt, PsbtMeta) {
+        let tx_params = TxParams::with(Sats::from_sats(fee.unwrap_or(400)));
+        let beneficiaries = self._construct_beneficiaries(beneficiaries);
+        let beneficiaries: Vec<&PsbtBeneficiary> = beneficiaries.iter().collect();
+
+        self.wallet
+            .wallet_mut()
+            .construct_psbt(input_outpoints, beneficiaries, tx_params)
+            .unwrap()
+    }
+
+    pub fn color_psbt(
+        &mut self,
+        psbt: &mut Psbt,
+        coloring_info: ColoringInfo,
+    ) -> (Fascia, AssetBeneficiariesMap) {
+        let _output = psbt.construct_output_expect(ScriptPubkey::op_return(&[]), Sats::ZERO);
+
+        let prev_outputs = psbt
+            .to_unsigned_tx()
+            .inputs
+            .iter()
+            .map(|txin| txin.prev_output)
+            .map(|outpoint| XOutpoint::from(XChain::Bitcoin(outpoint)))
+            .collect::<HashSet<XOutpoint>>();
+
+        let mut all_transitions: HashMap<ContractId, Transition> = HashMap::new();
+        let mut asset_beneficiaries: AssetBeneficiariesMap = bmap![];
+        let assignment_name = FieldName::from("assetOwner");
+
+        for (contract_id, asset_coloring_info) in coloring_info.asset_info_map.clone() {
+            let mut asset_transition_builder = self
+                .wallet
+                .stock_mut()
+                .transition_builder(contract_id, asset_coloring_info.iface, None::<&str>)
+                .unwrap();
+            let assignment_id = asset_transition_builder
+                .assignments_type(&assignment_name)
+                .unwrap();
+
+            let mut asset_available_amt = 0;
+            for (_, opout_state_map) in self
+                .wallet
+                .stock_mut()
+                .contract_assignments_for(contract_id, prev_outputs.iter().copied())
+                .unwrap()
+            {
+                for (opout, state) in opout_state_map {
+                    if let PersistedState::Amount(amt, _, _) = &state {
+                        asset_available_amt += amt.value();
+                    }
+                    asset_transition_builder =
+                        asset_transition_builder.add_input(opout, state).unwrap();
+                }
+            }
+
+            let mut beneficiaries = vec![];
+            let mut sending_amt = 0;
+            for (vout, amount) in asset_coloring_info.output_map {
+                if amount == 0 {
+                    continue;
+                }
+                sending_amt += amount;
+                if vout as usize > psbt.outputs().count() {
+                    panic!("invalid vout in output_map, does not exist in the given PSBT");
+                }
+                let graph_seal = if let Some(blinding) = asset_coloring_info.static_blinding {
+                    GraphSeal::with_blinded_vout(CloseMethod::OpretFirst, vout, blinding)
+                } else {
+                    GraphSeal::new_random_vout(CloseMethod::OpretFirst, vout)
+                };
+                let seal = BuilderSeal::Revealed(XChain::with(Layer1::Bitcoin, graph_seal));
+                beneficiaries.push(seal);
+
+                let blinding_factor = if let Some(blinding) = asset_coloring_info.static_blinding {
+                    let mut blinding_32_bytes: [u8; 32] = [0; 32];
+                    blinding_32_bytes[0..8].copy_from_slice(&blinding.to_le_bytes());
+                    BlindingFactor::try_from(blinding_32_bytes).unwrap()
+                } else {
+                    BlindingFactor::random()
+                };
+                asset_transition_builder = asset_transition_builder
+                    .add_fungible_state_raw(assignment_id, seal, amount, blinding_factor)
+                    .unwrap();
+            }
+            if sending_amt > asset_available_amt {
+                panic!("total amount in output_map greater than available ({asset_available_amt})");
+            }
+
+            let transition = asset_transition_builder.complete_transition().unwrap();
+            all_transitions.insert(contract_id, transition);
+            asset_beneficiaries.insert(contract_id, beneficiaries);
+        }
+
+        let (opreturn_index, _) = psbt
+            .to_unsigned_tx()
+            .outputs
+            .iter()
+            .enumerate()
+            .find(|(_, o)| o.script_pubkey.is_op_return())
+            .expect("psbt should have an op_return output");
+        let (_, opreturn_output) = psbt
+            .outputs_mut()
+            .enumerate()
+            .find(|(i, _)| i == &opreturn_index)
+            .unwrap();
+        opreturn_output.set_opret_host().unwrap();
+        if let Some(blinding) = coloring_info.static_blinding {
+            opreturn_output.set_mpc_entropy(blinding).unwrap();
+        }
+
+        let tx_inputs = psbt.clone().to_unsigned_tx().inputs;
+        for (contract_id, transition) in all_transitions {
+            for (input, txin) in psbt.inputs_mut().zip(&tx_inputs) {
+                let prevout = txin.prev_output;
+                let outpoint = Outpoint::new(prevout.txid.to_byte_array().into(), prevout.vout);
+                if coloring_info
+                    .asset_info_map
+                    .clone()
+                    .get(&contract_id)
+                    .unwrap()
+                    .input_outpoints
+                    .contains(&outpoint)
+                {
+                    input
+                        .set_rgb_consumer(contract_id, transition.id())
+                        .unwrap();
+                }
+            }
+            psbt.push_rgb_transition(transition, CloseMethod::OpretFirst)
+                .unwrap();
+        }
+
+        psbt.complete_construction();
+        let fascia = psbt.rgb_commit().unwrap();
+
+        (fascia, asset_beneficiaries)
+    }
+
+    pub fn consume_fascia(&mut self, fascia: Fascia) {
+        self.wallet.stock_mut().consume_fascia(fascia).unwrap();
     }
 }

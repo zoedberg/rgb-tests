@@ -217,7 +217,9 @@ fn _wait_indexer_sync() {
     }
 }
 
-pub fn send_to_address(address: String) -> String {
+pub fn send_to_address(address: String, sats: Option<u64>) -> String {
+    let sats = Sats::from_sats(sats.unwrap_or(100_000_000));
+    let btc = format!("{}.{}", sats.btc_floor(), sats.sats_rem());
     let output = Command::new("docker")
         .stdin(Stdio::null())
         .arg("compose")
@@ -225,7 +227,7 @@ pub fn send_to_address(address: String) -> String {
         .arg("-rpcwallet=miner")
         .arg("sendtoaddress")
         .arg(address)
-        .arg("1")
+        .arg(btc)
         .output()
         .expect("failed to fund wallet");
     if !output.status.success() {
@@ -235,8 +237,8 @@ pub fn send_to_address(address: String) -> String {
     String::from_utf8(output.stdout).unwrap().trim().to_string()
 }
 
-pub fn fund_wallet(address: String) -> String {
-    let address = send_to_address(address);
+pub fn fund_wallet(address: String, sats: Option<u64>) -> String {
+    let address = send_to_address(address, sats);
     mine(false);
     address
 }

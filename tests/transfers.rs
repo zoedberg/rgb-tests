@@ -120,7 +120,7 @@ fn transfer_loop(
     let mut sats = 9000;
 
     // wlt_1 issues 2 assets on the same UTXO
-    let utxo = wlt_1.get_utxo();
+    let utxo = wlt_1.get_utxo(None);
     let (contract_id_1, iface_type_name_1) = match asset_schema_1 {
         AssetSchema::Nia => wlt_1.issue_nia(issued_supply_1, wlt_1.close_method(), Some(&utxo)),
         AssetSchema::Uda => wlt_1.issue_uda(wlt_1.close_method(), Some(&utxo)),
@@ -468,4 +468,70 @@ fn same_transfer_twice() {
     let final_height = get_height();
     assert_eq!(initial_height, final_height);
     resume_mining();
+}
+
+#[test]
+fn ln_htlc_transfer() {
+    initialize();
+
+    let mut wlt_1 = get_wallet(&DescriptorType::Wpkh);
+    let mut wlt_2 = get_wallet(&DescriptorType::Wpkh);
+
+    let utxo = wlt_1.get_utxo(Some(10_000));
+    let (contract_id, iface_type_name) = wlt_1.issue_nia(600, wlt_1.close_method(), Some(&utxo));
+
+    let htlc_vout = 2;
+    let htlc_rgb_amt = 200;
+    let htlc_btc_amt = 4000;
+    let htlc_derived_addr = wlt_1.get_derived_address();
+
+    println!("constructing fake commitment TX");
+    let beneficiaries = vec![
+        (wlt_2.get_address(), Some(2000)),
+        (wlt_1.get_address(), None),
+        (htlc_derived_addr.addr, Some(htlc_btc_amt)),
+    ];
+    let (mut psbt, _meta) = wlt_1.construct_psbt(vec![utxo], beneficiaries, None);
+
+    println!("coloring fake commitment TX");
+    let coloring_info = ColoringInfo {
+        asset_info_map: HashMap::from([(
+            contract_id,
+            AssetColoringInfo {
+                iface: iface_type_name.clone(),
+                input_outpoints: vec![utxo],
+                output_map: HashMap::from([(0, 100), (1, 300), (htlc_vout, htlc_rgb_amt)]),
+                static_blinding: Some(666),
+            },
+        )]),
+        static_blinding: Some(666),
+    };
+    let (fascia, _asset_beneficiaries) = wlt_1.color_psbt(&mut psbt, coloring_info);
+
+    println!("constructing fake HTLC TX");
+    let witness_id = fascia.witness_id();
+    let txid = witness_id.as_reduced_unsafe();
+    let input_outpoint = Outpoint::new(*txid, htlc_vout);
+    let beneficiaries = vec![(wlt_1.get_address(), None)];
+    let (mut psbt, _meta) = wlt_1.construct_psbt_offchain(
+        vec![(input_outpoint, htlc_btc_amt, htlc_derived_addr.terminal)],
+        beneficiaries,
+        None,
+    );
+
+    println!("coloring fake HTLC TX");
+    let coloring_info = ColoringInfo {
+        asset_info_map: HashMap::from([(
+            contract_id,
+            AssetColoringInfo {
+                iface: iface_type_name,
+                input_outpoints: vec![input_outpoint],
+                output_map: HashMap::from([(0, htlc_rgb_amt)]),
+                static_blinding: Some(666),
+            },
+        )]),
+        static_blinding: Some(666),
+    };
+    // this fails
+    let (_fascia, _asset_beneficiaries) = wlt_1.color_psbt(&mut psbt, coloring_info);
 }
