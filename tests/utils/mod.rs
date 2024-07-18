@@ -20,6 +20,7 @@ pub use std::{
 
 pub use amplify::{
     confinement::{Confined, U16},
+    hex::ToHex,
     map, s, Wrapper,
 };
 pub use bitcoin::{

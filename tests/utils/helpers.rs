@@ -408,14 +408,13 @@ fn get_resolver() -> AnyResolver {
     }
 }
 
-fn broadcast_tx(indexer: &AnyIndexer, tx: &Tx) {
+fn broadcast_tx(indexer: &AnyIndexer, tx: &Tx) -> Result<(), String> {
     match indexer {
-        AnyIndexer::Electrum(inner) => {
-            inner.transaction_broadcast(tx).unwrap();
-        }
-        AnyIndexer::Esplora(inner) => {
-            inner.publish(tx).unwrap();
-        }
+        AnyIndexer::Electrum(inner) => inner
+            .transaction_broadcast(tx)
+            .map_err(|e| e.to_string())
+            .map(|_| ()),
+        AnyIndexer::Esplora(inner) => inner.publish(tx).map_err(|e| e.to_string()),
         _ => unreachable!("unsupported indexer"),
     }
 }
@@ -665,7 +664,15 @@ impl TestWallet {
         let tx = psbt.extract().unwrap();
 
         let indexer = get_indexer();
-        broadcast_tx(&indexer, &tx);
+        if let Err(e) = broadcast_tx(&indexer, &tx) {
+            let tx_path = PathBuf::from("tests")
+                .join("tmp")
+                .join(tx.txid().to_string());
+            println!("\nTX: {tx:#?}");
+            println!("saving TX hex to {:?}", tx_path);
+            std::fs::write(tx_path, tx.to_hex()).unwrap();
+            panic!("{:?}", e);
+        }
 
         let txid = tx.txid().to_string();
         println!("transfer txid: {txid:?}");
