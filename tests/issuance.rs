@@ -19,6 +19,8 @@ fn descriptor_and_close_method(
 
 #[apply(descriptor_and_close_method)]
 fn issue_nia(wallet_desc: DescriptorType, close_method: CloseMethod) {
+    println!("wallet_desc {wallet_desc:?} close_method {close_method:?}");
+
     initialize();
 
     let mut wallet = get_wallet(&wallet_desc);
@@ -66,6 +68,8 @@ fn issue_nia(wallet_desc: DescriptorType, close_method: CloseMethod) {
 
 #[apply(descriptor_and_close_method)]
 fn issue_uda(wallet_desc: DescriptorType, close_method: CloseMethod) {
+    println!("wallet_desc {wallet_desc:?} close_method {close_method:?}");
+
     initialize();
 
     let mut wallet = get_wallet(&wallet_desc);
@@ -146,6 +150,8 @@ fn issue_uda(wallet_desc: DescriptorType, close_method: CloseMethod) {
 
 #[apply(descriptor_and_close_method)]
 fn issue_cfa(wallet_desc: DescriptorType, close_method: CloseMethod) {
+    println!("wallet_desc {wallet_desc:?} close_method {close_method:?}");
+
     initialize();
 
     let mut wallet = get_wallet(&wallet_desc);

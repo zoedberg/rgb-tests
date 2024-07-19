@@ -310,53 +310,34 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
     let mut seed = vec![0u8; 128];
     rand::thread_rng().fill_bytes(&mut seed);
 
-    let secp = Secp256k1::new();
+    let xpriv = Xpriv::new_master(true, &seed);
 
-    let master_xpriv = ExtendedPrivKey::new_master(bitcoin::Network::Regtest, &seed).unwrap();
+    let xpub = xpriv.to_xpub();
 
-    let master_xpub = ExtendedPubKey::from_priv(&secp, &master_xpriv);
-
-    let derivation: DerivationPath = vec![
-        ChildNumber::from_hardened_idx(86).unwrap(),
-        ChildNumber::from_hardened_idx(1).unwrap(),
-        ChildNumber::from_hardened_idx(0).unwrap(),
-    ]
-    .into();
-
-    let account_xpriv = master_xpriv.derive_priv(&secp, &derivation).unwrap();
-
-    let account =
-        MemorySigningAccount::with(&secp, master_xpub.identifier(), derivation, account_xpriv);
-
-    let derivation_account = account.to_account();
-    let derivation_account_rgb = derivation_account
-        .to_string()
-        .replace("/*/*", "/<0;1;9;10>/*");
-    let xpub_derivable = XpubDerivable::from_str(&derivation_account_rgb).unwrap();
-
-    let descriptor = match descriptor_type {
-        DescriptorType::Wpkh => RgbDescr::Wpkh(Wpkh::from(xpub_derivable)),
-        DescriptorType::Tr => RgbDescr::TapretKey(TapretKey::from(xpub_derivable)),
-    };
-
-    let master_fp =
-        XpubFp::from_str(&derivation_account.master.fingerprint().unwrap().to_string()).unwrap();
-    let mut derivation = BpDerivationPath::<HardenedIndex>::new();
-    derivation.extend_from_slice(&[
-        HardenedIndex::from(86u8),
-        HardenedIndex::from(1u8),
-        HardenedIndex::from(0u8),
-    ]);
+    let master_fp = xpub.parent_fp();
+    let derivation = DerivationPath::<HardenedIndex>::from_str("86'/1'/0'").unwrap();
     let origin = XkeyOrigin::new(master_fp, derivation);
-    let xpriv = Xpriv::from_str(&account_xpriv.to_string()).unwrap();
-    let signer_account = XprivAccount::new(xpriv, origin);
+
+    let signer_account = XprivAccount::new(xpriv, origin.clone());
     let signer = TestnetSigner::new(signer_account);
 
     let rgb_dir = PathBuf::from("tests")
         .join("tmp")
-        .join(account.account_fingerprint().to_string());
+        .join(xpub.fingerprint().to_string());
     std::fs::create_dir_all(&rgb_dir).unwrap();
     println!("wallet dir: {rgb_dir:?}");
+
+    let keychains = [
+        Keychain::with(0),
+        Keychain::with(1),
+        Keychain::with(9),
+        Keychain::with(10),
+    ];
+    let xpub_derivable = XpubDerivable::try_custom(xpub, origin, keychains).unwrap();
+    let descriptor = match descriptor_type {
+        DescriptorType::Wpkh => RgbDescr::Wpkh(Wpkh::from(xpub_derivable)),
+        DescriptorType::Tr => RgbDescr::TapretKey(TapretKey::from(xpub_derivable)),
+    };
 
     let mut bp_wallet: Wallet<XpubDerivable, RgbDescr> =
         Wallet::new_layer1(descriptor.clone(), Network::Regtest);
@@ -369,9 +350,7 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
             autosave: true,
         })
         .unwrap();
-
     let stock = Stock::new(rgb_dir.to_owned());
-
     let mut wallet = RgbWallet::new(stock, bp_wallet);
 
     for asset_schema in AssetSchema::iter() {
@@ -423,7 +402,7 @@ fn broadcast_tx(indexer: &AnyIndexer, tx: &Tx) {
 pub fn attachment_from_fpath(fpath: &str) -> Attachment {
     let file_bytes = std::fs::read(fpath).unwrap();
     let file_hash: sha256::Hash = Hash::hash(&file_bytes[..]);
-    let digest = file_hash.into_inner().into();
+    let digest = file_hash.to_byte_array().into();
     let mime = tree_magic_mini::from_filepath(fpath.as_ref())
         .unwrap()
         .to_string();
@@ -475,8 +454,9 @@ impl TestWallet {
         let txid = fund_wallet(address);
         self.sync();
         let mut vout = None;
-        let bp_runtime = self.wallet.wallet();
-        for (_derived_addr, utxos) in bp_runtime.address_coins() {
+        let coins = self.wallet.wallet().address_coins();
+        assert!(!coins.is_empty());
+        for (_derived_addr, utxos) in coins {
             for utxo in utxos {
                 if utxo.outpoint.txid.to_string() == txid {
                     vout = Some(utxo.outpoint.vout_u32());

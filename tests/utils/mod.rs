@@ -22,41 +22,26 @@ pub use amplify::{
     confinement::{Confined, U16},
     map, s, Wrapper,
 };
-pub use bitcoin::{
-    consensus,
-    hashes::{sha256, Hash},
-    util::{
-        bip32::{ChildNumber, DerivationPath, ExtendedPrivKey, ExtendedPubKey},
-        key::Secp256k1,
-        psbt::{serialize::Serialize, Psbt as BitcoinPsbt},
-    },
-};
+use bitcoin_hashes::{sha256, Hash};
 pub use bp::{
     seals::txout::{BlindSeal, CloseMethod},
     ConsensusDecode, Outpoint, Sats, Tx, Txid, Vout,
 };
 pub use bpstd::{
-    signers::TestnetSigner, DerivationPath as BpDerivationPath, DerivationSeg, HardenedIndex,
-    Keychain, Network, XkeyOrigin, Xpriv, XprivAccount, Xpub, XpubDerivable, XpubFp,
+    signers::TestnetSigner, DerivationPath, DerivationSeg, HardenedIndex, Keychain, Network,
+    XkeyOrigin, Xpriv, XprivAccount, Xpub, XpubDerivable, XpubFp,
 };
 pub use bpwallet::{
     indexers::esplora::Client as EsploraClient, AnyIndexer, FsConfig, Indexer as BpIndexer, Wallet,
 };
 pub use descriptors::Wpkh;
-pub use dw_psbt::{
-    serialize::Deserialize,
-    sign::{MemoryKeyProvider, MemorySigningAccount, SignAll},
-    Psbt as DwPsbt,
-};
 pub use electrum::{Client as ElectrumClient, ElectrumApi};
 pub use ifaces::{
     rgb20, rgb21,
     rgb21::{EmbeddedMedia, TokenData},
     rgb25, IssuerWrapper, Rgb20, Rgb21, Rgb25,
 };
-pub use miniscript::psbt::PsbtExt;
 pub use once_cell::sync::Lazy;
-pub use psbt::PsbtVer;
 pub use rand::RngCore;
 pub use rgb::{
     invoice::Pay2Vout, persistence::Stock, resolvers::AnyResolver, stl::ContractTerms,
