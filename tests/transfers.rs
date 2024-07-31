@@ -469,3 +469,43 @@ fn same_transfer_twice() {
     assert_eq!(initial_height, final_height);
     resume_mining();
 }
+
+#[test]
+fn tapret_wlt_receiving_opret() {
+    initialize();
+
+    let mut wlt_1 = get_wallet(&DescriptorType::Tr);
+    let mut wlt_2 = get_wallet(&DescriptorType::Wpkh);
+
+    let (contract_id, iface_type_name) = wlt_1.issue_nia(600, wlt_1.close_method(), None);
+
+    println!("1st transfer");
+    wlt_1.send(
+        &mut wlt_2,
+        TransferType::Blinded,
+        contract_id,
+        &iface_type_name,
+        400,
+        5000,
+    );
+
+    println!("2nd transfer");
+    let invoice = wlt_1.invoice(
+        contract_id,
+        &iface_type_name,
+        100,
+        CloseMethod::OpretFirst,
+        InvoiceType::Witness,
+    );
+    wlt_2.send_to_invoice(&mut wlt_1, invoice, None, None);
+
+    println!("3rd transfer");
+    wlt_1.send(
+        &mut wlt_2,
+        TransferType::Blinded,
+        contract_id,
+        &iface_type_name,
+        300,
+        1000,
+    );
+}

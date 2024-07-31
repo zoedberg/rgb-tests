@@ -778,7 +778,17 @@ impl TestWallet {
                 InvoiceType::Witness,
             ),
         };
-        let (consignment, tx) = self.transfer(invoice, Some(sats), None);
+        self.send_to_invoice(recv_wlt, invoice, Some(sats), None)
+    }
+
+    pub fn send_to_invoice(
+        &mut self,
+        recv_wlt: &mut TestWallet,
+        invoice: RgbInvoice,
+        sats: Option<u64>,
+        fee: Option<u64>,
+    ) -> (Transfer, Tx) {
+        let (consignment, tx) = self.transfer(invoice, sats, fee);
         mine(false);
         recv_wlt.accept_transfer(consignment.clone());
         self.sync();
