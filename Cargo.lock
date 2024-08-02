@@ -47,7 +47,7 @@ dependencies = [
 
 [[package]]
 name = "amplify"
-version = "4.6.0"
+version = "4.6.2"
 dependencies = [
  "amplify_apfloat",
  "amplify_derive",
@@ -62,7 +62,9 @@ dependencies = [
 
 [[package]]
 name = "amplify_apfloat"
-version = "0.3.0"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "695e433882668b55b3d7fb0ba22bf9be66a91abe30d7ca1f1a774f8b90b4db4c"
 dependencies = [
  "amplify_num",
  "bitflags 2.5.0",
@@ -71,7 +73,7 @@ dependencies = [
 
 [[package]]
 name = "amplify_derive"
-version = "4.0.0"
+version = "4.0.1"
 dependencies = [
  "amplify_syn",
  "proc-macro2",
@@ -81,7 +83,9 @@ dependencies = [
 
 [[package]]
 name = "amplify_num"
-version = "0.5.2"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99bcb75a2982047f733547042fc3968c0f460dfcf7d90b90dea3b2744580e9ad"
 dependencies = [
  "serde",
  "wasm-bindgen",
@@ -1686,7 +1690,6 @@ dependencies = [
  "commit_verify",
  "descriptors",
  "indexmap 2.2.6",
- "rgb-interfaces",
  "rgb-psbt",
  "rgb-std",
  "serde",
@@ -2916,3 +2919,11 @@ dependencies = [
  "quote",
  "syn 2.0.66",
 ]
+
+[[patch.unused]]
+name = "amplify_apfloat"
+version = "0.3.0"
+
+[[patch.unused]]
+name = "amplify_num"
+version = "0.5.2"

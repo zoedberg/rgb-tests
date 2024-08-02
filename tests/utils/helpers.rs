@@ -112,9 +112,9 @@ impl AssetSchema {
 
     fn iface(&self) -> Iface {
         match self {
-            Self::Nia => Rgb20::iface(rgb20::Features::FIXED),
-            Self::Uda => Rgb21::iface(rgb21::Features::NONE),
-            Self::Cfa => Rgb25::iface(rgb25::Features::NONE),
+            Self::Nia => Rgb20::iface(&Rgb20::FIXED),
+            Self::Uda => Rgb21::iface(&Rgb21::NONE),
+            Self::Cfa => Rgb25::iface(&Rgb25::NONE),
         }
     }
 
@@ -516,10 +516,10 @@ impl TestWallet {
         builder = asset_info.add_asset_owner(builder, builder_seal);
 
         let contract = builder.issue_contract().expect("failure issuing contract");
-        let mut resolver = get_resolver();
+        let resolver = get_resolver();
         self.wallet
             .stock_mut()
-            .import_contract(contract.clone(), &mut resolver)
+            .import_contract(contract.clone(), resolver)
             .unwrap();
 
         (contract.contract_id(), asset_info.iface_type_name())
@@ -655,7 +655,7 @@ impl TestWallet {
 
     pub fn accept_transfer(&mut self, consignment: Transfer) {
         self.sync();
-        let mut resolver = get_resolver();
+        let resolver = get_resolver();
         let validated_consignment = consignment.validate(&resolver, true).unwrap();
         let validation_status = validated_consignment.clone().into_validation_status();
         let validity = validation_status.validity();
@@ -664,7 +664,7 @@ impl TestWallet {
         while let Err(e) = self
             .wallet
             .stock_mut()
-            .accept_transfer(validated_consignment.clone(), &mut resolver)
+            .accept_transfer(validated_consignment.clone(), &resolver)
         {
             attempts += 1;
             if attempts > 3 {
@@ -678,16 +678,26 @@ impl TestWallet {
         &self,
         contract_id: ContractId,
         iface_type_name: &TypeName,
-    ) -> ContractIface {
+    ) -> ContractIface<MemContract<&MemContractState>> {
         self.wallet
             .stock()
             .contract_iface(contract_id, iface_type_name.clone())
             .unwrap()
     }
 
-    pub fn contract_fungible_allocations(
+    pub fn contract_iface_class<C: IfaceClass>(
         &self,
-        contract_iface: &ContractIface,
+        contract_id: ContractId,
+    ) -> C::Wrapper<MemContract<&MemContractState>> {
+        self.wallet
+            .stock()
+            .contract_iface_class::<C>(contract_id)
+            .unwrap()
+    }
+
+    pub fn contract_fungible_allocations<S: ContractStateRead>(
+        &self,
+        contract_iface: &ContractIface<S>,
     ) -> Vec<FungibleAllocation> {
         contract_iface
             .fungible(fname!("assetOwner"), &self.wallet.wallet().filter())
@@ -695,7 +705,10 @@ impl TestWallet {
             .collect()
     }
 
-    pub fn contract_data_allocations(&self, contract_iface: &ContractIface) -> Vec<DataAllocation> {
+    pub fn contract_data_allocations<S: ContractStateRead>(
+        &self,
+        contract_iface: &ContractIface<S>,
+    ) -> Vec<DataAllocation> {
         contract_iface
             .data(fname!("assetOwner"), &self.wallet.wallet().filter())
             .unwrap()
@@ -722,7 +735,7 @@ impl TestWallet {
             {
                 for allocation in allocations {
                     println!(
-                        "    amount={}, utxo={}, witness={} # owned by the wallet",
+                        "    amount={}, utxo={}, witness={:?} # owned by the wallet",
                         allocation.state, allocation.seal, allocation.witness
                     );
                 }
@@ -733,7 +746,7 @@ impl TestWallet {
             ) {
                 for allocation in allocations {
                     println!(
-                        "    amount={}, utxo={}, witness={} # owner unknown",
+                        "    amount={}, utxo={}, witness={:?} # owner unknown",
                         allocation.state, allocation.seal, allocation.witness
                     );
                 }

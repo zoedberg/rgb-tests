@@ -55,7 +55,7 @@ rgb-interfaces = { path = "./rgb-interfaces" }
 ## rgb-schemata
 rgb-schemata = { path = "./rgb-schemata" }
 ## rgb-std
-rgb-std = { path = "./rgb-std" }
+rgb-std = { path = "./rgb-std", features = ["fs"] }
 ## rust-amplify
 amplify = { path = "./rust-amplify" }
 ## strict-encoding

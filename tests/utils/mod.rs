@@ -44,12 +44,17 @@ pub use ifaces::{
 pub use once_cell::sync::Lazy;
 pub use rand::RngCore;
 pub use rgb::{
-    invoice::Pay2Vout, persistence::Stock, resolvers::AnyResolver, stl::ContractTerms,
+    invoice::Pay2Vout,
+    persistence::{
+        ContractStateRead, MemContract, MemContractState, Stock,
+    },
+    resolvers::AnyResolver,
+    stl::ContractTerms,
     DescriptorRgb, GenesisSeal, GraphSeal, Identity, RgbDescr, RgbKeychain, RgbWallet, TapretKey,
     TransferParams, WalletProvider,
 };
 pub use rgbstd::{
-    containers::{BuilderSeal, FileContent, Kit, Transfer, ValidKit},
+    containers::{BuilderSeal, ConsignmentExt, FileContent, Kit, Transfer, ValidKit},
     interface::{
         ContractBuilder, ContractIface, DataAllocation, FilterExclude, FungibleAllocation, Iface,
         IfaceClass, IfaceId, IfaceImpl, NamedField,
