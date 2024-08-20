@@ -1,12 +1,16 @@
+use std::fs;
+use std::io::Write;
+use rgb::PayError;
 use super::*;
 
 pub struct TestWallet {
+    master_fp: XpubFp,
     wallet: RgbWallet<Wallet<XpubDerivable, RgbDescr>>,
     descriptor: RgbDescr,
     signer: TestnetSigner,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum DescriptorType {
     Wpkh,
     Tr,
@@ -306,7 +310,7 @@ impl AssetInfo {
     }
 }
 
-pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
+pub fn get_wallet(descriptor_type: DescriptorType) -> TestWallet {
     let mut seed = vec![0u8; 128];
     rand::thread_rng().fill_bytes(&mut seed);
 
@@ -314,7 +318,7 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
 
     let xpub = xpriv.to_xpub();
 
-    let master_fp = xpub.parent_fp();
+    let master_fp = xpub.fingerprint();
     let derivation = DerivationPath::<HardenedIndex>::from_str("86'/1'/0'").unwrap();
     let origin = XkeyOrigin::new(master_fp, derivation);
 
@@ -323,17 +327,19 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
 
     let rgb_dir = PathBuf::from("tests")
         .join("tmp")
-        .join(xpub.fingerprint().to_string());
-    std::fs::create_dir_all(&rgb_dir).unwrap();
+        .join(master_fp.to_string());
+    fs::create_dir_all(&rgb_dir).unwrap();
     println!("wallet dir: {rgb_dir:?}");
 
-    let keychains = [
-        Keychain::with(0),
-        Keychain::with(1),
-        Keychain::with(9),
-        Keychain::with(10),
+    let mut keychains = vec![
+        RgbKeychain::Internal,
+        RgbKeychain::External,
+        RgbKeychain::Rgb,
     ];
-    let xpub_derivable = XpubDerivable::try_custom(xpub, origin, keychains).unwrap();
+    if descriptor_type == DescriptorType::Tr {
+        keychains.push(RgbKeychain::Tapret);
+    }
+    let xpub_derivable = XpubDerivable::try_custom(xpub, origin, keychains.into_iter().map(Keychain::from)).unwrap();
     let descriptor = match descriptor_type {
         DescriptorType::Wpkh => RgbDescr::Wpkh(Wpkh::from(xpub_derivable)),
         DescriptorType::Tr => RgbDescr::TapretKey(TapretKey::from(xpub_derivable)),
@@ -359,6 +365,7 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
     }
 
     let mut wallet = TestWallet {
+        master_fp,
         wallet,
         descriptor,
         signer,
@@ -638,19 +645,34 @@ impl TestWallet {
         let fee = Sats::from_sats(fee.unwrap_or(400));
         let sats = Sats::from_sats(sats.unwrap_or(2000));
         let params = TransferParams::with(fee, sats);
-        let (mut psbt, _psbt_meta, consignment) = self.wallet.pay(&invoice, params).unwrap();
+        let (mut psbt, _psbt_meta, consignment) = self.wallet.pay(&invoice, params).map(|(psbt, meta, cs)| (psbt, Some(meta), Ok(cs))).or_else(|e| match e {
+            PayError::Composition(_) => Err(e),
+            PayError::Completion(err, psbt) => Ok((psbt, None, Err(err)))
+        }).unwrap();
 
         let _sig_count = psbt.sign(&self.signer).unwrap();
         psbt.finalize(&self.descriptor);
         let tx = psbt.extract().unwrap();
+        let txid = tx.txid().to_string();
+
+        let mut path = PathBuf::from("tests")
+            .join("tmp")
+            .join(self.master_fp.to_string())
+            .join("tx");
+        let _ = fs::create_dir(&path); // no need to panic if the dir already exists
+        path.push(txid.to_string());
+        path.set_extension("yaml");
+        let mut file = fs::File::create_new(path).unwrap();
+        serde_yaml::to_writer(&mut file, &tx).unwrap();
+        writeln!(file, "\n---").unwrap();
+        serde_yaml::to_writer(&mut file, &psbt).unwrap();
 
         let indexer = get_indexer();
         broadcast_tx(&indexer, &tx);
 
-        let txid = tx.txid().to_string();
         println!("transfer txid: {txid:?}");
 
-        (consignment, tx)
+        (consignment.unwrap(), tx)
     }
 
     pub fn accept_transfer(&mut self, consignment: Transfer) {
