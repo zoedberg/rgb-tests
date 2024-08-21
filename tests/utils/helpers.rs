@@ -311,34 +311,30 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
     let mut seed = vec![0u8; 128];
     rand::thread_rng().fill_bytes(&mut seed);
 
-    let xpriv = Xpriv::new_master(true, &seed);
+    let xpriv_account = XprivAccount::with_seed(true, &seed).derive(h![86, 1, 0]);
 
-    let xpub = xpriv.to_xpub();
-
-    let master_fp = xpub.fingerprint();
-
-    let derivation = DerivationPath::<HardenedIndex>::from_str("86'/1'/0'").unwrap();
-    let origin = XkeyOrigin::new(master_fp, derivation);
-
-    let signer_account = XprivAccount::new(xpriv, origin.clone());
-    let signer = TestnetSigner::new(signer_account);
-
-    let wallet_dir = PathBuf::from("tests")
-        .join("tmp")
-        .join(master_fp.to_string());
+    let fingerprint = xpriv_account.account_fp().to_string();
+    let wallet_dir = PathBuf::from("tests").join("tmp").join(fingerprint);
     std::fs::create_dir_all(&wallet_dir).unwrap();
     println!("wallet dir: {wallet_dir:?}");
 
-    let mut keychains = vec![
-        RgbKeychain::Internal,
-        RgbKeychain::External,
-        RgbKeychain::Rgb,
+    let xpub_account = &xpriv_account.to_xpub_account();
+    const OPRET_KEYCHAINS: [Keychain; 3] = [
+        Keychain::INNER,
+        Keychain::OUTER,
+        Keychain::with(RgbKeychain::Rgb as u8),
     ];
-    if *descriptor_type == DescriptorType::Tr {
-        keychains.push(RgbKeychain::Tapret);
-    }
-    let xpub_derivable =
-        XpubDerivable::try_custom(xpub, origin, keychains.into_iter().map(Keychain::from)).unwrap();
+    const TAPRET_KEYCHAINS: [Keychain; 4] = [
+        Keychain::INNER,
+        Keychain::OUTER,
+        Keychain::with(RgbKeychain::Rgb as u8),
+        Keychain::with(RgbKeychain::Tapret as u8),
+    ];
+    let keychains: &[Keychain] = match *descriptor_type {
+        DescriptorType::Tr => &TAPRET_KEYCHAINS[..],
+        DescriptorType::Wpkh => &OPRET_KEYCHAINS[..],
+    };
+    let xpub_derivable = XpubDerivable::with(xpub_account.clone(), keychains);
     let descriptor = match descriptor_type {
         DescriptorType::Wpkh => RgbDescr::Wpkh(Wpkh::from(xpub_derivable)),
         DescriptorType::Tr => RgbDescr::TapretKey(TapretKey::from(xpub_derivable)),
@@ -362,6 +358,8 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
         let valid_kit = asset_schema.get_valid_kit();
         wallet.stock_mut().import_kit(valid_kit).unwrap();
     }
+
+    let signer = TestnetSigner::new(xpriv_account);
 
     let mut wallet = TestWallet {
         wallet,

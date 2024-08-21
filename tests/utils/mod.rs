@@ -29,7 +29,7 @@ pub use bp::{
     ConsensusDecode, Outpoint, Sats, Tx, Txid, Vout,
 };
 pub use bpstd::{
-    signers::TestnetSigner, Address, DerivationPath, DerivationSeg, DerivedAddr, HardenedIndex,
+    h, signers::TestnetSigner, Address, DerivationPath, DerivationSeg, DerivedAddr, HardenedIndex,
     Keychain, Network, XkeyOrigin, Xpriv, XprivAccount, Xpub, XpubDerivable, XpubFp,
 };
 pub use bpwallet::{
