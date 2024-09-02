@@ -33,7 +33,8 @@ pub use bpstd::{
     Keychain, Network, XkeyOrigin, Xpriv, XprivAccount, Xpub, XpubDerivable, XpubFp,
 };
 pub use bpwallet::{
-    indexers::esplora::Client as EsploraClient, AnyIndexer, FsConfig, Indexer as BpIndexer, Wallet,
+    fs::FsTextStore, indexers::esplora::Client as EsploraClient, AnyIndexer, Indexer as BpIndexer,
+    Wallet,
 };
 pub use descriptors::Wpkh;
 pub use electrum::{Client as ElectrumClient, ElectrumApi};
@@ -60,7 +61,7 @@ pub use rgbstd::{
         IfaceClass, IfaceId, IfaceImpl, NamedField,
     },
     invoice::{Beneficiary, RgbInvoice, RgbInvoiceBuilder, XChainNet},
-    persistence::{PersistedState, SchemaIfaces, StashReadProvider},
+    persistence::{fs::FsBinStore, PersistedState, SchemaIfaces, StashReadProvider},
     schema::SchemaId,
     stl::{
         AssetSpec, Attachment, Details, MediaType, Name, ProofOfReserves, RicardianContract, Ticker,

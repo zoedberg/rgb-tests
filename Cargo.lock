@@ -30,7 +30,7 @@ dependencies = [
 name = "aluvm"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "ascii-armor",
  "baid64",
  "blake3",
@@ -57,6 +57,18 @@ dependencies = [
  "rand",
  "serde",
  "stringly_conversions",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "amplify"
+version = "5.0.0-beta.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d41888768802fc62c27b46427127b119e8a16e1f1f59495aced93a340f55eb25"
+dependencies = [
+ "amplify_derive",
+ "amplify_num",
+ "ascii",
  "wasm-bindgen",
 ]
 
@@ -136,7 +148,7 @@ dependencies = [
 name = "ascii-armor"
 version = "0.7.2"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "baid64",
  "base85",
  "sha2",
@@ -195,7 +207,7 @@ dependencies = [
 name = "baid64"
 version = "0.2.2"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "base64",
  "mnemonic",
  "sha2",
@@ -305,7 +317,7 @@ dependencies = [
 name = "bp-consensus"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "chrono",
  "commit_verify",
  "secp256k1",
@@ -318,7 +330,7 @@ dependencies = [
 name = "bp-core"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "bp-consensus",
  "bp-dbc",
  "bp-seals",
@@ -335,7 +347,7 @@ dependencies = [
 name = "bp-dbc"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "base85",
  "bp-consensus",
  "commit_verify",
@@ -348,7 +360,7 @@ dependencies = [
 name = "bp-derive"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "bp-consensus",
  "bp-invoice",
  "commit_verify",
@@ -362,7 +374,7 @@ dependencies = [
 name = "bp-electrum"
 version = "0.11.0-beta.7.1"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "bp-std",
  "byteorder",
  "libc",
@@ -379,7 +391,7 @@ dependencies = [
 name = "bp-esplora"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "bp-std",
  "log",
  "reqwest",
@@ -393,7 +405,7 @@ dependencies = [
 name = "bp-invoice"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "bech32",
  "bp-consensus",
  "commit_verify",
@@ -404,7 +416,7 @@ dependencies = [
 name = "bp-seals"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "baid64",
  "bp-consensus",
  "bp-dbc",
@@ -419,7 +431,7 @@ dependencies = [
 name = "bp-std"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "bp-consensus",
  "bp-derive",
  "bp-invoice",
@@ -435,12 +447,13 @@ dependencies = [
 name = "bp-wallet"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "bp-electrum",
  "bp-esplora",
  "bp-std",
  "descriptors",
  "log",
+ "nonasync",
  "psbt",
  "serde",
  "serde_json",
@@ -533,7 +546,7 @@ dependencies = [
 name = "commit_encoding_derive"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "amplify_syn",
  "proc-macro2",
  "quote",
@@ -544,7 +557,7 @@ dependencies = [
 name = "commit_verify"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "commit_encoding_derive",
  "rand",
  "ripemd",
@@ -660,7 +673,7 @@ dependencies = [
 name = "descriptors"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "bp-derive",
  "indexmap 2.4.0",
  "serde",
@@ -1195,7 +1208,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c2a198fb6b0eada2a8df47933734e6d35d350665a33a3593d7164fa52c75c19"
 dependencies = [
  "cfg-if",
- "windows-targets 0.48.5",
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -1206,9 +1219,9 @@ checksum = "01cda141df6706de531b6c46c3a33ecca755538219bd484262fa09410c13539c"
 
 [[package]]
 name = "log"
-version = "0.4.21"
+version = "0.4.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
+checksum = "a7a70ba024b9dc04c27ea2f0c0548feb474ec5c54bba33a7f72f873a39d07b24"
 
 [[package]]
 name = "memchr"
@@ -1286,6 +1299,14 @@ checksum = "d273983c5a657a70a3e8f2a01329822f3b8c8172b73826411a55751e404a0a4a"
 dependencies = [
  "memchr",
  "minimal-lexical",
+]
+
+[[package]]
+name = "nonasync"
+version = "0.1.0"
+dependencies = [
+ "amplify 5.0.0-beta.1",
+ "log",
 ]
 
 [[package]]
@@ -1457,7 +1478,7 @@ dependencies = [
 name = "psbt"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "base64",
  "bp-core",
  "bp-derive",
@@ -1588,7 +1609,7 @@ name = "rgb-core"
 version = "0.11.0-beta.7"
 dependencies = [
  "aluvm",
- "amplify",
+ "amplify 4.7.0",
  "baid64",
  "bp-core",
  "chrono",
@@ -1607,7 +1628,7 @@ dependencies = [
 name = "rgb-integration-tests"
 version = "0.1.0"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "bitcoin_hashes",
  "bp-core",
  "bp-electrum",
@@ -1640,7 +1661,7 @@ name = "rgb-interfaces"
 version = "0.11.0-beta.7"
 dependencies = [
  "aluvm",
- "amplify",
+ "amplify 4.7.0",
  "bp-core",
  "chrono",
  "getrandom",
@@ -1656,7 +1677,7 @@ dependencies = [
 name = "rgb-invoice"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "baid64",
  "bp-core",
  "bp-invoice",
@@ -1675,7 +1696,7 @@ dependencies = [
 name = "rgb-psbt"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "baid64",
  "bp-core",
  "bp-std",
@@ -1691,7 +1712,7 @@ dependencies = [
 name = "rgb-runtime"
 version = "0.11.0-beta.7"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "baid64",
  "bp-core",
  "bp-electrum",
@@ -1703,6 +1724,7 @@ dependencies = [
  "descriptors",
  "getrandom",
  "indexmap 2.4.0",
+ "nonasync",
  "rgb-psbt",
  "rgb-std",
  "serde",
@@ -1716,7 +1738,7 @@ name = "rgb-schemata"
 version = "0.11.0-beta.7"
 dependencies = [
  "aluvm",
- "amplify",
+ "amplify 4.7.0",
  "bp-core",
  "chrono",
  "rgb-interfaces",
@@ -1733,7 +1755,7 @@ name = "rgb-std"
 version = "0.11.0-beta.7"
 dependencies = [
  "aluvm",
- "amplify",
+ "amplify 4.7.0",
  "ascii-armor",
  "baid64",
  "base85",
@@ -1742,6 +1764,7 @@ dependencies = [
  "commit_verify",
  "getrandom",
  "indexmap 2.4.0",
+ "nonasync",
  "rand",
  "rgb-core",
  "rgb-invoice",
@@ -2162,7 +2185,7 @@ checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 name = "strict_encoding"
 version = "2.7.0-rc.1"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "half",
  "serde",
  "strict_encoding_derive",
@@ -2184,7 +2207,7 @@ dependencies = [
 name = "strict_types"
 version = "2.7.0-rc.1"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "ascii-armor",
  "baid64",
  "half",
@@ -2574,7 +2597,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 name = "vesper-lang"
 version = "0.1.0"
 dependencies = [
- "amplify",
+ "amplify 4.7.0",
  "strict_encoding",
 ]
 

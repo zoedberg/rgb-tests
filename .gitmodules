@@ -58,3 +58,6 @@
 [submodule "rust-baid64"]
 	path = rust-baid64
 	url = https://github.com/UBIDECO/rust-baid64.git
+[submodule "amplify-nonasync"]
+	path = amplify-nonasync
+	url = https://github.com/rust-amplify/amplify-nonasync.git

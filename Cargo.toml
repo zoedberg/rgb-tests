@@ -69,6 +69,8 @@ strict_types = { path = "./strict-types" }
 ## amplify-derive
 amplify_derive = { path = "./amplify-derive" }
 amplify_syn = { path = "./amplify-derive/syn" }
+## amplify-nonasync
+nonasync = { path = "./amplify-nonasync" }
 ## amplify-num
 amplify_apfloat = { path = "./amplify-num/apfloat" }
 amplify_num = { path = "./amplify-num/num" }

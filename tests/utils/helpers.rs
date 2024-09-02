@@ -340,18 +340,18 @@ pub fn get_wallet(descriptor_type: &DescriptorType) -> TestWallet {
         DescriptorType::Tr => RgbDescr::TapretKey(TapretKey::from(xpub_derivable)),
     };
 
-    let mut bp_wallet: Wallet<XpubDerivable, RgbDescr> =
-        Wallet::new_layer1(descriptor.clone(), Network::Regtest);
-    let name = s!("wallet_name");
-    let bp_dir = wallet_dir.join(&name);
-    bp_wallet.set_name(name);
-    bp_wallet
-        .set_fs_config(FsConfig {
-            path: bp_dir,
-            autosave: true,
-        })
-        .unwrap();
-    let stock = Stock::new(wallet_dir.to_owned());
+    let name = "bp_wallet_name";
+    let mut bp_wallet = Wallet::new_layer1(descriptor.clone(), Network::Regtest);
+    bp_wallet.set_name(name.to_string());
+    let bp_dir = wallet_dir.join(name);
+    // by removing this dir creation nothing fails but then bp-wallet data is missing
+    std::fs::create_dir_all(&bp_dir).unwrap();
+    let bp_wallet_provider = FsTextStore::new(bp_dir);
+    bp_wallet.make_persistent(bp_wallet_provider, true).unwrap();
+
+    let stock_provider = FsBinStore::new(wallet_dir.clone());
+    let mut stock = Stock::in_memory();
+    stock.make_persistent(stock_provider, true).unwrap();
     let mut wallet = RgbWallet::new(stock, bp_wallet);
 
     for asset_schema in AssetSchema::iter() {
