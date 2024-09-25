@@ -36,7 +36,7 @@
 	url = https://github.com/rust-amplify/rust-amplify
 [submodule "rgb"]
 	path = rgb
-	url = https://github.com/RGB-WG/rgb
+	url = https://github.com/zoedberg/rgb
 [submodule "bp-wallet"]
 	path = bp-wallet
 	url = https://github.com/BP-WG/bp-wallet
