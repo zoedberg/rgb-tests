@@ -652,7 +652,7 @@ fn broadcast_tx(tx: &Tx, indexer_url: &str) {
             inner.transaction_broadcast(tx).unwrap();
         }
         AnyIndexer::Esplora(inner) => {
-            inner.publish(tx).unwrap();
+            inner.broadcast(tx).unwrap();
         }
         _ => unreachable!("unsupported indexer"),
     }
@@ -798,7 +798,7 @@ impl TestWallet {
         let indexer = self.get_indexer();
         self.wallet
             .wallet_mut()
-            .update(&indexer)
+            .update(&indexer, true)
             .into_result()
             .unwrap();
     }
